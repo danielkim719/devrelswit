@@ -32,6 +32,21 @@ def news():
   
   news = []
 
+  invite_check = requests.get(
+    url = 'https://openapi.swit.io/v1/api/channel.info?id='+channel_id,
+    headers = {'authorization': 'Bearer ' + tk}
+  )
+  print(invite_check.json, json.dumps(invite_check.json(), indent=1).encode('utf-8').decode('unicode-escape'), sep="\n")
+
+  if invite_check.json()['data']['channel']['id']=='':
+    callback = {
+      "callback_type": "bot.invite_prompt",
+      "destination": {
+        "type": "channel",
+        "id": channel_id
+      }
+    }
+
   if action_id == 'naver':
     client_id = '1kpS2zc95PgatbjV3Eiy'
     client_secret = 'LBOypYfzgT'
@@ -130,15 +145,15 @@ def news():
   )
   print(news_post.json, json.dumps(news_post.json(), indent=1).encode('utf-8').decode('unicode-escape'), sep="\n")
 
-  if news_post:
-    callback = {"callback_type": "views.close"}   
-  else:
-    callback = {
-      "callback_type": "bot.invite_prompt",
-      "destination": {
-        "type": "channel",
-        "id": channel_id
-      }
-    }
+#   if news_post:
+#     callback = {"callback_type": "views.close"}   
+#   else:
+#     callback = {
+#       "callback_type": "bot.invite_prompt",
+#       "destination": {
+#         "type": "channel",
+#         "id": channel_id
+#       }
+#     }
 
   return callback
