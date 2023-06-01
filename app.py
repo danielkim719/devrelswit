@@ -145,8 +145,8 @@ def news():
   )
   print(news_post.json, json.dumps(news_post.json(), indent=1).encode('utf-8').decode('unicode-escape'), sep="\n")
 
-#   if news_post:
-#     callback = {"callback_type": "views.close"}   
+  if news_post:
+    callback = {"callback_type": "views.close"}   
 #   else:
 #     callback = {
 #       "callback_type": "bot.invite_prompt",
