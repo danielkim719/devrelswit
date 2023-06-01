@@ -53,6 +53,7 @@ def news():
       for item in news_search.json()['items']:
         news.append({'title': item['title'], 'link': item['originallink']})
     else: 
+      number = 0
       news.append({'title': '결과 없음', 'link': 'swit.io'})
 
     content = {
