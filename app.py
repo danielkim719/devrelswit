@@ -3,6 +3,7 @@ import json, requests
 from urllib import parse
 from bs4 import BeautifulSoup
 
+
 app = Flask(__name__)
 
 @app.route("/")
