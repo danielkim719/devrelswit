@@ -1,16 +1,49 @@
 from flask import Flask, request, render_template
-import json, requests
+import requests
+import json
 from urllib import parse
 from bs4 import BeautifulSoup
 
+api = 'https://openapi.swit.io'
+clientid = 'Q4IsuPdQeFck4wAeiHpMJHUfBHPXPOEE'
+secret = 'uhHSNc2x0VMpYYqdcVns1SfT'
 
 app = Flask(__name__)
+
+def get_token_from_token_info_file():
+    with open('token_info.txt', 'r') as f:
+        data = json.load(f)
+    return data['access_token']
+
+def get_refresh_token_from_token_info_file():
+    with open('token_info.txt', 'r') as f:
+        data = json.load(f)
+    return data['refresh_token']
+
+def write_to_token_info_file(token_info):
+    with open('token_info.txt', 'w') as f:
+        json.dump(token_info, f)
+
+def get_new_token_by_using_refresh_token(refresh_token):
+    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    data = {
+        'grant_type': 'refresh_token',
+        'client_id': clientid,
+        'client_secret': secret,
+        'refresh_token': refresh_token
+    }
+    response = requests.post('https://openapi.swit.io/oauth/token', headers=headers, data=data)
+    if response.status_code == 200:
+        new_token_info = response.json()
+        write_to_token_info_file(new_token_info)
+        return new_token_info['access_token']
+    else:
+        print('Error in refreshing token', response.text)
+        return None
 
 @app.route("/")
 def index():
     return render_template('./index.html')
-
-tk = 'eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJRNElzdVBkUWVGY2s0d0FlaUhwTUpIVWZCSFBYUE9FRSIsImV4cCI6MTY4OTgxOTExMCwiaXNzIjoiaHR0cHM6Ly9zd2l0LmlvIiwic3ViIjoiMjMwNTEwMTExNDU3NjU5VEc0VFoiLCJjbXBfaWQiOiIyMzA1MTAxMTE0NTc2NTlURzRUWiIsImFwcHNfaWQiOiIyMzA1MTEwNzM0MDU2MExLSFIxTCIsImFwcF91c2VyX2lkIjoiMjMwNTExMDczNDA1NTkwQVJEV0ciLCJpc3N1ZV90eXBlIjoyfQ.cA3j5a6T_P6Ghu9i3408DZ816nkieTgc7993SMTphlPMLFFHtMTVeIrZ4WEZoxfAJ8_se973-8oYrJW-Nyxb-Q'
 
 @app.route('/news', methods=['POST'])
 def news():
@@ -33,9 +66,10 @@ def news():
   
   news = []
 
+  token = get_token_from_token_info_file()
   invite_check = requests.get(
     url = 'https://openapi.swit.io/v1/api/channel.info?id='+channel_id,
-    headers = {'authorization': 'Bearer ' + tk}
+    headers = {'authorization': 'Bearer ' + token}
   )
   print(invite_check.json, json.dumps(invite_check.json(), indent=1).encode('utf-8').decode('unicode-escape'), sep="\n")
 
@@ -49,8 +83,8 @@ def news():
     }
 
   if action_id == 'naver':
-    client_id = '1kpS2zc95PgatbjV3Eiy'
-    client_secret = 'LBOypYfzgT'
+    naver_client_id = '1kpS2zc95PgatbjV3Eiy'
+    naver_client_secret = 'LBOypYfzgT'
     url = 'https://openapi.naver.com/v1/search/news.json'
     params = {
       'query': keyword,
@@ -61,8 +95,8 @@ def news():
     news_search = requests.get(
       url = f"{url}?{parse.urlencode(params)}",
       headers = {
-        'X-Naver-Client-Id': client_id,
-        'X-Naver-Client-Secret': client_secret
+        'X-Naver-Client-Id': naver_client_id,
+        'X-Naver-Client-Secret': naver_client_secret
       }
     )
     if news_search.json()['total']:
@@ -137,7 +171,7 @@ def news():
 
   news_post = requests.post(
     url = 'https://openapi.swit.io/v1/api/message.create',
-    headers = {'authorization': 'Bearer ' + tk},
+    headers = {'authorization': 'Bearer ' + token},
     json = {
       'channel_id': channel_id,
       'body_type': 'json_string',
@@ -147,14 +181,23 @@ def news():
   print(news_post.json, json.dumps(news_post.json(), indent=1).encode('utf-8').decode('unicode-escape'), sep="\n")
 
   if news_post:
-    callback = {"callback_type": "views.close"}   
-#   else:
-#     callback = {
-#       "callback_type": "bot.invite_prompt",
-#       "destination": {
-#         "type": "channel",
-#         "id": channel_id
-#       }
-#     }
+     callback = {"callback_type": "views.close"}
+
+  if news_post.status_code == 401: # token expired
+    refresh_token = get_refresh_token_from_token_info_file()
+    token = get_new_token_by_using_refresh_token(refresh_token)    
+    news_post_2nd = requests.post(
+    url = 'https://openapi.swit.io/v1/api/message.create',
+    headers = {'authorization': 'Bearer ' + token},
+    json = {
+      'channel_id': channel_id,
+      'body_type': 'json_string',
+      'content': json.dumps(content)
+      }
+    )
+    print(news_post_2nd.json, json.dumps(news_post_2nd.json(), indent=1).encode('utf-8').decode('unicode-escape'), sep="\n")
+
+    if news_post_2nd:
+       callback = {"callback_type": "views.close"}
 
   return callback
